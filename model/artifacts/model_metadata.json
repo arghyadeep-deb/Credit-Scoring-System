@@ -1,0 +1,14 @@
+{
+  "classes": [
+    "P1",
+    "P2",
+    "P3",
+    "P4"
+  ],
+  "input_dim": 89,
+  "n_features": 89,
+  "weights": {
+    "ensemble": 0.6,
+    "nn": 0.4
+  }
+}
