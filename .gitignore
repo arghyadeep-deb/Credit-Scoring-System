@@ -22,7 +22,6 @@ dist/
 .coverage.*
 htmlcov/
 
-
 # Environment / secrets
 .env
 .env.*
