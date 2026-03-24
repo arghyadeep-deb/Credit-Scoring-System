@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Literal
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,24 +10,38 @@ from pydantic import BaseModel, Field
 
 from .inference import HybridCreditScorer
 
-# PATH SETUP
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ARTIFACTS_DIR = PROJECT_ROOT / "model" / "artifacts"
+
+# =========================
+# PATH SETUP (FIXED ✅)
+# =========================
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+ARTIFACTS_DIR = Path(
+    os.getenv("ARTIFACTS_DIR", BASE_DIR / "model" / "artifacts")
+)
 
 print("🚀 Starting Credit Scoring API...")
-print("📂 Artifacts path:", ARTIFACTS_DIR)
+print("📂 Using artifacts path:", ARTIFACTS_DIR)
 
 
-# LOAD MODEL (SAFE)
+# =========================
+# LOAD MODEL (SAFE ✅)
+# =========================
 try:
+    if not ARTIFACTS_DIR.exists():
+        raise FileNotFoundError(f"Artifacts folder not found at {ARTIFACTS_DIR}")
+
     scorer = HybridCreditScorer.load(ARTIFACTS_DIR)
     print("✅ Model loaded successfully")
+
 except Exception as e:
     print("❌ Model loading failed:", e)
     scorer = None
 
 
+# =========================
 # FASTAPI INIT
+# =========================
 app = FastAPI(title="Credit Scoring API", version="1.0.0")
 
 app.add_middleware(
@@ -38,7 +53,9 @@ app.add_middleware(
 )
 
 
+# =========================
 # REQUEST / RESPONSE MODELS
+# =========================
 class PredictRequest(BaseModel):
     features: dict[str, float] = Field(
         ..., description="Encoded model feature map. Missing features default to 0.0."
@@ -66,13 +83,17 @@ class BatchPredictRequest(BaseModel):
     input_type: Literal["encoded", "raw"] = "encoded"
 
 
+# =========================
 # HEALTH CHECK
+# =========================
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "ok"}
 
 
+# =========================
 # SCHEMA ENDPOINT
+# =========================
 @app.get("/schema")
 def schema() -> dict[str, Any]:
     if scorer is None:
@@ -89,7 +110,9 @@ def schema() -> dict[str, Any]:
     }
 
 
+# =========================
 # RAW SCHEMA
+# =========================
 @app.get("/raw-schema")
 def raw_schema() -> dict[str, Any]:
     if scorer is None:
@@ -98,7 +121,9 @@ def raw_schema() -> dict[str, Any]:
     return scorer.get_raw_schema()
 
 
+# =========================
 # PREDICT (ENCODED)
+# =========================
 @app.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest) -> PredictResponse:
     if scorer is None:
@@ -107,14 +132,16 @@ def predict(payload: PredictRequest) -> PredictResponse:
     try:
         result = scorer.predict_one(payload.features)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
 
     return PredictResponse(**result)
 
 
-# PREDICT (RAW INPUT)
+# =========================
+# PREDICT (RAW)
+# =========================
 @app.post("/predict-raw", response_model=PredictResponse)
 def predict_raw(payload: PredictRawRequest) -> PredictResponse:
     if scorer is None:
@@ -123,14 +150,16 @@ def predict_raw(payload: PredictRawRequest) -> PredictResponse:
     try:
         result = scorer.predict_one_raw(payload.raw_fields)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
 
     return PredictResponse(**result)
 
 
+# =========================
 # BATCH PREDICT
+# =========================
 @app.post("/predict-batch")
 def predict_batch(payload: BatchPredictRequest) -> dict[str, Any]:
     if scorer is None:
@@ -139,9 +168,9 @@ def predict_batch(payload: BatchPredictRequest) -> dict[str, Any]:
     try:
         results = scorer.predict_batch(payload.records, input_type=payload.input_type)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Batch inference failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Batch inference failed: {exc}")
 
     return {
         "count": len(results),
@@ -149,9 +178,11 @@ def predict_batch(payload: BatchPredictRequest) -> dict[str, Any]:
         "results": results,
     }
 
-# LOCAL RUN (OPTIONAL)
+
+# =========================
+# LOCAL RUN
+# =========================
 if __name__ == "__main__":
-    import os
     import uvicorn
 
     uvicorn.run(
