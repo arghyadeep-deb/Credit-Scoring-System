@@ -8,7 +8,7 @@ import requests
 import streamlit as st
 
 
-BACKEND_URL = os.getenv("BACKEND_URL", "https://credit-scoring-system-spt2.onrender.com")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 
 @st.cache_data(show_spinner=False)
