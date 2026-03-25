@@ -10,10 +10,11 @@ from pydantic import BaseModel, Field
 
 from .inference import HybridCreditScorer
 
+import numpy
+import sys
+sys.modules['numpy._core'] = numpy.core
 
-# =========================
-# PATH SETUP (FIXED ✅)
-# =========================
+# PATH SETUP 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 ARTIFACTS_DIR = Path(
@@ -23,10 +24,7 @@ ARTIFACTS_DIR = Path(
 print("🚀 Starting Credit Scoring API...")
 print("📂 Using artifacts path:", ARTIFACTS_DIR)
 
-
-# =========================
-# LOAD MODEL (SAFE ✅)
-# =========================
+# LOAD MODEL 
 try:
     if not ARTIFACTS_DIR.exists():
         raise FileNotFoundError(f"Artifacts folder not found at {ARTIFACTS_DIR}")
@@ -39,9 +37,7 @@ except Exception as e:
     scorer = None
 
 
-# =========================
-# FASTAPI INIT
-# =========================
+#  FASTAPI INIT
 app = FastAPI(title="Credit Scoring API", version="1.0.0")
 
 app.add_middleware(
@@ -53,9 +49,7 @@ app.add_middleware(
 )
 
 
-# =========================
 # REQUEST / RESPONSE MODELS
-# =========================
 class PredictRequest(BaseModel):
     features: dict[str, float] = Field(
         ..., description="Encoded model feature map. Missing features default to 0.0."
@@ -83,17 +77,13 @@ class BatchPredictRequest(BaseModel):
     input_type: Literal["encoded", "raw"] = "encoded"
 
 
-# =========================
 # HEALTH CHECK
-# =========================
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "ok"}
 
 
-# =========================
 # SCHEMA ENDPOINT
-# =========================
 @app.get("/schema")
 def schema() -> dict[str, Any]:
     if scorer is None:
@@ -110,9 +100,7 @@ def schema() -> dict[str, Any]:
     }
 
 
-# =========================
 # RAW SCHEMA
-# =========================
 @app.get("/raw-schema")
 def raw_schema() -> dict[str, Any]:
     if scorer is None:
@@ -121,9 +109,7 @@ def raw_schema() -> dict[str, Any]:
     return scorer.get_raw_schema()
 
 
-# =========================
-# PREDICT (ENCODED)
-# =========================
+# PREDICT(ENCODED)
 @app.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest) -> PredictResponse:
     if scorer is None:
@@ -139,9 +125,7 @@ def predict(payload: PredictRequest) -> PredictResponse:
     return PredictResponse(**result)
 
 
-# =========================
 # PREDICT (RAW)
-# =========================
 @app.post("/predict-raw", response_model=PredictResponse)
 def predict_raw(payload: PredictRawRequest) -> PredictResponse:
     if scorer is None:
@@ -157,9 +141,7 @@ def predict_raw(payload: PredictRawRequest) -> PredictResponse:
     return PredictResponse(**result)
 
 
-# =========================
 # BATCH PREDICT
-# =========================
 @app.post("/predict-batch")
 def predict_batch(payload: BatchPredictRequest) -> dict[str, Any]:
     if scorer is None:
@@ -179,9 +161,7 @@ def predict_batch(payload: BatchPredictRequest) -> dict[str, Any]:
     }
 
 
-# =========================
 # LOCAL RUN
-# =========================
 if __name__ == "__main__":
     import uvicorn
 
