@@ -19,18 +19,24 @@ except Exception:  # pragma: no cover
 class CreditScoreNN(nn.Module):
     def __init__(self, input_dim: int, num_classes: int = 4) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, 128)
-        self.relu1 = nn.ReLU()
-        self.dropout1 = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(128, 64)
-        self.relu2 = nn.ReLU()
-        self.dropout2 = nn.Dropout(0.2)
-        self.fc3 = nn.Linear(64, num_classes)
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.30),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Dropout(0.20),
+            nn.Linear(64, 32),
+            nn.BatchNorm1d(32),
+            nn.ReLU(),
+            nn.Dropout(0.15),
+            nn.Linear(32, num_classes),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.dropout1(self.relu1(self.fc1(x)))
-        x = self.dropout2(self.relu2(self.fc2(x)))
-        return self.fc3(x)
+        return self.net(x)
 
 
 @dataclass
@@ -42,6 +48,7 @@ class HybridCreditScorer:
     blend_weights: tuple[float, float]
     calibrated_ensemble: Any
     nn_model: CreditScoreNN
+    p3_boost: float
     rejection_label: str
     one_hot_mapping: dict[str, list[str]]
     numeric_input_fields: list[str]
@@ -49,18 +56,31 @@ class HybridCreditScorer:
 
     @classmethod
     def load(cls, artifacts_dir: Path) -> "HybridCreditScorer":
-        with (artifacts_dir / "hybrid_preprocessing.pkl").open("rb") as f:
+        with (artifacts_dir / "hybrid_bundle.pkl").open("rb") as f:
             bundle = cloudpickle.load(f)
 
         label_encoder = bundle["label_encoder"]
         feature_columns = bundle["feature_columns"]
         categorical_cols = bundle.get("categorical_cols", [])
-        scaler = bundle["scaler"]
-        blend_weights = bundle.get("blend_weights", (0.6, 0.4))
+        scaler = bundle.get("scaler") or bundle.get("scaler_nn")
+        if scaler is None:
+            raise KeyError("Neither 'scaler' nor 'scaler_nn' found in hybrid_bundle.pkl")
+        raw_blend_weights = bundle.get("blend_weights", (0.7, 0.3))
+        if isinstance(raw_blend_weights, dict):
+            blend_weights = (
+                float(raw_blend_weights.get("ensemble", 0.7)),
+                float(raw_blend_weights.get("nn", 0.3)),
+            )
+        else:
+            blend_weights = tuple(raw_blend_weights)
+            if len(blend_weights) != 2:
+                raise ValueError("blend_weights must contain exactly two values: (ensemble, nn)")
+            blend_weights = (float(blend_weights[0]), float(blend_weights[1]))
         calibrated_ensemble = bundle["calibrated_ensemble"]
+        p3_boost = float(bundle.get("p3_boost", 0.0))
 
         nn_model = CreditScoreNN(input_dim=len(feature_columns), num_classes=len(label_encoder.classes_))
-        state_dict = torch.load(artifacts_dir / "nn_40_state_dict.pt", map_location="cpu")
+        state_dict = torch.load(artifacts_dir / "nn_state_dict.pt", map_location="cpu")
         nn_model.load_state_dict(state_dict)
         nn_model.eval()
 
@@ -85,6 +105,7 @@ class HybridCreditScorer:
             blend_weights=blend_weights,
             calibrated_ensemble=calibrated_ensemble,
             nn_model=nn_model,
+            p3_boost=p3_boost,
             rejection_label=rejection_label,
             one_hot_mapping=one_hot_mapping,
             numeric_input_fields=numeric_input_fields,
@@ -265,6 +286,11 @@ class HybridCreditScorer:
 
         w_ens, w_nn = self.blend_weights
         final_probs = (w_ens * ensemble_probs) + (w_nn * nn_probs)
+
+        if self.p3_boost > 0 and "P3" in self.label_encoder.classes_:
+            p3_idx = int(np.where(self.label_encoder.classes_ == "P3")[0][0])
+            final_probs[:, p3_idx] += self.p3_boost
+            final_probs = final_probs / final_probs.sum(axis=1, keepdims=True)
 
         pred_idx = int(np.argmax(final_probs[0]))
         pred_label = str(self.label_encoder.inverse_transform([pred_idx])[0])

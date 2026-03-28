@@ -57,10 +57,11 @@ Credit Scoring/
 |   +-- case_study2.xlsx
 |
 +-- model/
-|   +-- CreditScoring.ipynb       # Model training and experimentation notebook
+|   +-- CreditScoring.ipynb       # Current training and experimentation notebook
 |   +-- artifacts/
-|       +-- hybrid_preprocessing.pkl
-|       +-- nn_40_state_dict.pt
+|       +-- hybrid_bundle.pkl
+|       +-- nn_state_dict.pt
+|       +-- llm_decision_explanations.md
 |       +-- model_metadata.json
 |
 +-- requirements.txt
@@ -159,7 +160,10 @@ These datasets help the model learn patterns related to applicant risk, delinque
 
 ## Notes
 - Model artifacts are stored in `model/artifacts/`.
-- `hybrid_preprocessing.pkl` is tracked with Git LFS, so make sure Git LFS is installed before cloning or pulling large artifacts.
+- `hybrid_bundle.pkl` and `nn_state_dict.pt` are tracked with Git LFS, so make sure Git LFS is installed before cloning or pulling large artifacts.
+- Backend requires both `hybrid_bundle.pkl` and `nn_state_dict.pt` at startup and validates they exist before loading the model.
+- For compatibility across training exports, backend accepts both `scaler` and `scaler_nn` keys from `hybrid_bundle.pkl`.
+- Backend also supports blend weights saved as either a tuple/list `(ensemble, nn)` or a dict with `ensemble` and `nn` keys.
 - The frontend fetches the raw schema dynamically from the backend using the `BACKEND_URL` environment variable. If not set, it defaults to `http://127.0.0.1:8000`.
 
 ---

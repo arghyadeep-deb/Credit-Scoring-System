@@ -5,10 +5,112 @@
     "P3",
     "P4"
   ],
-  "input_dim": 89,
   "n_features": 89,
-  "weights": {
+  "nn_epochs": 24,
+  "p3_multiplier": 1.35,
+  "stack_models": [
+    "RandomForest",
+    "XGBoost",
+    "HistGradientBoosting"
+  ],
+  "blend_weights": {
     "ensemble": 0.6,
     "nn": 0.4
-  }
+  },
+  "cv_f1_weighted": 0.7681981005395794,
+  "cv_roc_auc_ovr_weighted": 0.9183375686388799,
+  "ablation_results": [
+    {
+      "Model": "Baseline: Logistic Regression",
+      "Accuracy": 0.6856,
+      "Weighted F1": 0.7019,
+      "Macro F1": 0.6494,
+      "ROC-AUC (OVR,w)": 0.8738,
+      "Brier": 0.4433,
+      "Log Loss": 0.7831,
+      "ECE (10 bins)": 0.0827
+    },
+    {
+      "Model": "Baseline: SVM (RBF)",
+      "Accuracy": 0.7548,
+      "Weighted F1": 0.738,
+      "Macro F1": 0.6537,
+      "ROC-AUC (OVR,w)": 0.8963,
+      "Brier": 0.328,
+      "Log Loss": 0.577,
+      "ECE (10 bins)": 0.0259
+    },
+    {
+      "Model": "Stacking Ensemble (RF+XGB+HistGB)",
+      "Accuracy": 0.7838,
+      "Weighted F1": 0.7565,
+      "Macro F1": 0.6741,
+      "ROC-AUC (OVR,w)": 0.9167,
+      "Brier": 0.2997,
+      "Log Loss": 0.5204,
+      "ECE (10 bins)": 0.0352
+    },
+    {
+      "Model": "Neural Network",
+      "Accuracy": 0.7219,
+      "Weighted F1": 0.7429,
+      "Macro F1": 0.697,
+      "ROC-AUC (OVR,w)": 0.9089,
+      "Brier": 0.3613,
+      "Log Loss": 0.6079,
+      "ECE (10 bins)": 0.0678
+    },
+    {
+      "Model": "Hybrid (best blend 60/40)",
+      "Accuracy": 0.7801,
+      "Weighted F1": 0.7755,
+      "Macro F1": 0.7081,
+      "ROC-AUC (OVR,w)": 0.9197,
+      "Brier": 0.2947,
+      "Log Loss": 0.513,
+      "ECE (10 bins)": 0.0486
+    }
+  ],
+  "fairness_results": [
+    {
+      "Sensitive Attribute": "Gender",
+      "DPD": 0.0072,
+      "EOD": 0.0517,
+      "DIR": 0.9906
+    },
+    {
+      "Sensitive Attribute": "Marital Status",
+      "DPD": 0.1291,
+      "EOD": 0.095,
+      "DIR": 0.8362
+    },
+    {
+      "Sensitive Attribute": "Age",
+      "DPD": 0.211,
+      "EOD": 0.1937,
+      "DIR": 0.7521
+    }
+  ],
+  "explainability_results": [
+    {
+      "Metric": "SHAP sample size",
+      "Value": 500.0
+    },
+    {
+      "Metric": "LIME sample size",
+      "Value": 120.0
+    },
+    {
+      "Metric": "Common top-feature count",
+      "Value": 25.0
+    },
+    {
+      "Metric": "Kendall tau (LIME vs SHAP)",
+      "Value": 0.6733
+    },
+    {
+      "Metric": "Kendall p-value",
+      "Value": 0.0
+    }
+  ]
 }

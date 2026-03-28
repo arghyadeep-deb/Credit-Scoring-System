@@ -21,19 +21,26 @@ ARTIFACTS_DIR = Path(
     os.getenv("ARTIFACTS_DIR", BASE_DIR / "model" / "artifacts")
 )
 
-print("🚀 Starting Credit Scoring API...")
-print("📂 Using artifacts path:", ARTIFACTS_DIR)
+print(" Starting Credit Scoring API...")
+print(" Using artifacts path:", ARTIFACTS_DIR)
 
 # LOAD MODEL 
 try:
     if not ARTIFACTS_DIR.exists():
         raise FileNotFoundError(f"Artifacts folder not found at {ARTIFACTS_DIR}")
 
+    required_files = ["hybrid_bundle.pkl", "nn_state_dict.pt"]
+    missing = [name for name in required_files if not (ARTIFACTS_DIR / name).exists()]
+    if missing:
+        raise FileNotFoundError(
+            "Missing required current-model artifact(s): " + ", ".join(missing)
+        )
+
     scorer = HybridCreditScorer.load(ARTIFACTS_DIR)
-    print("✅ Model loaded successfully")
+    print("Model loaded successfully")
 
 except Exception as e:
-    print("❌ Model loading failed:", e)
+    print(" Model loading failed:", e)
     scorer = None
 
 
@@ -97,6 +104,7 @@ def schema() -> dict[str, Any]:
             "ensemble": float(scorer.blend_weights[0]),
             "nn": float(scorer.blend_weights[1]),
         },
+        "p3_boost": float(scorer.p3_boost),
     }
 
 
